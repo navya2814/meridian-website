@@ -2,7 +2,7 @@ import { useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../AppContext.jsx';
 import { Icon } from '../components/Icon.jsx';
-import { Card, Empty, PageHead, SampleBanner, Tag } from '../components/ui.jsx';
+import { Card, Empty, PageHead, Tag } from '../components/ui.jsx';
 import { REPORTS, reportText, scenarioReport } from '../lib/engine.js';
 
 /** A plain-text report with copy and download buttons. */
@@ -35,7 +35,6 @@ export default function Reports() {
   return (
     <>
       <PageHead title="Reports" sub="Short reports to share with the family or the accountants. Each one opens ready to copy or download." />
-      <SampleBanner>Reports are generated from the sample data in this build and say so at the top.</SampleBanner>
       <div className="grid g4">{REPORTS.map(([k, n, d]) => (
         <section className="card card-pad" key={k} style={{ display: 'grid', gap: 10, alignContent: 'space-between' }}>
           <div style={{ display: 'grid', gap: 4 }}>

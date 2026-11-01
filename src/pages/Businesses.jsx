@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '../AppContext.jsx';
 import { Icon } from '../components/Icon.jsx';
 import { AddBusinessForm } from '../components/finance.jsx';
-import { Callout, PageHead, Spark, Tag } from '../components/ui.jsx';
+import { Callout, Empty, PageHead, Spark, Tag } from '../components/ui.jsx';
 import { COMPANIES } from '../lib/data.js';
 import { CR, inr, pct, coC } from '../lib/format.js';
 import { metrics, outlook, ranking, MAX_COS } from '../lib/engine.js';
@@ -21,6 +21,7 @@ export default function Businesses() {
           <button className="btn sm" onClick={add} disabled={full} title={full ? `Meridian holds up to ${MAX_COS} businesses` : undefined}><Icon name="plus" /> Add a business</button>
         </div>
       </PageHead>
+      {!COMPANIES.length && <Empty>No businesses yet. Select Add a business to enter the first one.</Empty>}
       {full && <Callout>Meridian holds up to {MAX_COS} businesses. Remove one you added to make room for another.</Callout>}
       <div className="grid g2">
         {COMPANIES.map(c => {

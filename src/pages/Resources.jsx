@@ -1,8 +1,8 @@
 // Assets, Liabilities, Cash Flow and Investments pages.
 import { useState } from 'react';
 import ChartCanvas from '../components/ChartCanvas.jsx';
-import { Callout, Card, CoDot, Delta, HBar, Kpi, PageHead, Seg, Trace } from '../components/ui.jsx';
-import { COMPANIES, CO, FAMILY, LENDERS, MONTHS12, QTRS } from '../lib/data.js';
+import { Callout, Card, CoDot, Delta, Empty, HBar, Kpi, PageHead, Seg, Trace } from '../components/ui.jsx';
+import { COMPANIES, CO, FAMILY, LENDERS, QTRS } from '../lib/data.js';
 import { CR, inr, pct, cssv, coC, alpha } from '../lib/format.js';
 import { baseOpts, hBarOpts } from '../lib/charts.js';
 import { bsRow, cashParts, famRow, familyTotals, metrics, monthlyCash, traceFor } from '../lib/engine.js';
@@ -25,6 +25,8 @@ export function Assets() {
   rows.push({ n: 'Physical gold', owner: 'Family', id: 'fam', v: FAMILY.gold, tr: [famRow('Physical gold', FAMILY.gold, 35)] },
     { n: 'Savings accounts', owner: 'Family', id: 'fam', v: FAMILY.cash, tr: [famRow('Savings accounts', FAMILY.cash, 4)] },
     { n: 'Vehicles', owner: 'Family', id: 'fam', v: FAMILY.vehicles, tr: [famRow('Vehicles', FAMILY.vehicles, 34)] });
+  const held = rows.filter(r => r.v > 0);
+  rows.length = 0; rows.push(...held);
   rows.sort((a, b) => b.v - a.v);
   const shown = owner === 'all' ? rows : rows.filter(r => r.id === owner);
   const stockAll = sumBs('inventory');
@@ -37,7 +39,7 @@ export function Assets() {
       <div className="grid g-side">
         <Card title="By type" hint={`Where the family's ${inr(ft.assets * CR)} sits`}>
           <HBar max={cats[0][1]} rows={cats.map(([n, v]) => ({ n, v, label: inr(v * CR), sub: pct(v / ft.assets, 0) }))} />
-          {CO.jj && <Callout style={{ marginTop: 16 }}>{pct(stockAll / ft.assets, 0)} of everything the family owns is business stock, and {pct(CO.jj.bs.inventory / stockAll, 0)} of that stock is jewellery at JJ Jewelers.</Callout>}
+          {stockAll > 0 && ft.assets > 0 && <Callout style={{ marginTop: 16 }}>{pct(stockAll / ft.assets, 0)} of everything the family owns is business stock.</Callout>}
         </Card>
         <Card title="By owner" hint="Assets held by each business and by the family directly">
           <ChartCanvas label="Assets by owner" build={() => {
@@ -64,12 +66,6 @@ export function Assets() {
 }
 
 /* ---------------- Liabilities ---------------- */
-const UPCOMING = [
-  ['warn', 'ICICI cash credit renewal, JJ Jewelers', '₹10.0 Cr limit due for renewal in December. The bank will review stock days, now 318.', 'Dec 2026'],
-  ['info', 'SBI cash credit renewal, Eastern Edible Oils', '₹9.8 Cr limit. Margin trend will be part of the review.', 'Jan 2027'],
-  ['info', 'Gold metal loan rollover, JJ Jewelers', '₹7.5 Cr rolls over every 180 days at the current gold price.', 'Jan 2027'],
-  ['gain', 'Term loan, UCO Bank, Bengal Jute Mills', 'Quarterly payment of ₹48 L on schedule.', '31 Dec 2026'],
-];
 export function Liabilities() {
   const ft = familyTotals();
   const [by, setBy] = useState('all');
@@ -77,6 +73,7 @@ export function Liabilities() {
   const pay = COMPANIES.reduce((s, c) => s + c.bs.payables, 0), adv = COMPANIES.reduce((s, c) => s + c.bs.advances, 0);
   const interest = LENDERS.reduce((s, l) => s + l.amt * l.rate, 0);
   const loans = by === 'all' ? LENDERS : LENDERS.filter(l => l.co === by);
+  const dated = LENDERS.filter(l => l.due && l.due !== 'Not entered yet');
   const t = traceFor('liab');
   return (
     <>
@@ -91,8 +88,10 @@ export function Liabilities() {
         <Card title="Borrowings by business" hint="Last eight quarters, ₹ crore">
           <ChartCanvas label="Borrowings by business" build={() => ({ type: 'bar', data: { labels: QTRS, datasets: COMPANIES.map(c => ({ label: c.short, data: c.debtHist, backgroundColor: coC(c.id), borderRadius: 3, maxBarThickness: 34 })) }, options: baseOpts({ legend: true, stacked: true }) })} />
         </Card>
-        <Card title="Coming up" hint="Renewals and large payments in the next 90 days">
-          <div className="list">{UPCOMING.map(([s, t2, d, w]) => <div className="list-row" key={t2}><span className={`sev ${s}`} /><div><div className="t">{t2}</div><div className="d">{d}</div></div><span className="when">{w}</span></div>)}</div>
+        <Card title="Coming up" hint="Loans with a renewal or end date on record">
+          {dated.length
+            ? <div className="list">{dated.map(l => <div className="list-row" key={l.co + l.n}><span className="sev info" /><div><div className="t">{l.n}</div><div className="d">{l.co === 'fam' ? 'Family' : CO[l.co].short} · {inr(l.amt * CR)} at {pct(l.rate)}</div></div><span className="when">{l.due}</span></div>)}</div>
+            : <Empty>No renewal or end dates recorded yet.</Empty>}
         </Card>
       </div>
       <Card title="All loans" bodyClass="card-b tbl-wrap"
@@ -158,10 +157,15 @@ export function CashFlow() {
 }
 
 /* ---------------- Investments ---------------- */
-const PORTFOLIO_HISTORY = [21.1, 21.6, 21.3, 22.0, 22.4, 22.1, 23.0, 23.4, 23.9, 24.2, 24.6]; // sample month-end values, ₹ Cr
 export function Investments() {
   const [type, setType] = useState('all');
   const iv = FAMILY.investments;
+  if (!iv.length) return (
+    <>
+      <PageHead title="Investments" sub="Stocks, mutual funds, fixed deposits and bonds held by the family outside the businesses." />
+      <Card title="Holdings"><Empty>No personal investments recorded yet. Statements imported on the Data Import page are listed there, but holdings are not read from them automatically.</Empty></Card>
+    </>
+  );
   const inv = iv.reduce((s, x) => s + x.inv, 0), val = iv.reduce((s, x) => s + x.val, 0);
   const byType = {}; iv.forEach(x => { byType[x.type] = (byType[x.type] || 0) + x.val; });
   const types = Object.keys(byType);
@@ -173,29 +177,21 @@ export function Investments() {
       <div className="grid g4">
         <Kpi label="Current value" value={inr(val * CR)} />
         <Kpi label="Amount invested" value={inr(inv * CR)} />
-        <Kpi label="Gain so far" value={<span className="t-gain">+{inr((val - inv) * CR)}</span>} foot={<Delta x={val / inv - 1} kind="pct" />} />
+        <Kpi label="Gain so far" value={<span className={val >= inv ? 't-gain' : 't-loss'}>{val >= inv ? '+' : '−'}{inr(Math.abs(val - inv) * CR)}</span>} foot={inv > 0 ? <Delta x={val / inv - 1} kind="pct" /> : null} />
         <Kpi label="Return, last 12 months" value={pct(iv.reduce((s, x) => s + x.val * x.ret1y, 0) / val)} foot={<span>weighted by value</span>} />
       </div>
-      <div className="grid g-main">
-        <Card title="Portfolio value, last 12 months" hint="₹ crore, all holdings">
-          <ChartCanvas label="Portfolio value" build={() => {
-            const acc = cssv('--accent'); const o = baseOpts(); o.scales.y.beginAtZero = false;
-            return { type: 'line', data: { labels: MONTHS12, datasets: [{ label: 'Value', data: [...PORTFOLIO_HISTORY, val], borderColor: acc, backgroundColor: alpha(acc, 0.12), fill: true, tension: 0.35, pointRadius: 0, borderWidth: 2 }] }, options: o };
-          }} />
-        </Card>
-        <Card title="Mix">
-          <ChartCanvas size="sm" label="Investment mix" build={() => ({ type: 'doughnut', data: { labels: types, datasets: [{ data: Object.values(byType), backgroundColor: mixColors.map(coC), borderColor: cssv('--card'), borderWidth: 2 }] },
-            options: { responsive: true, maintainAspectRatio: false, cutout: '68%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.label}: ${inr(c.raw * CR)}` } } } } })} />
-          <div className="legend mt" style={{ marginTop: 12 }}>{types.map((k, i) => <span key={k}><i style={{ background: `var(--c-${mixColors[i]})`, height: 8, width: 8, borderRadius: 2 }} />{k} {pct(byType[k] / val, 0)}</span>)}</div>
-        </Card>
-      </div>
+      <Card title="Mix">
+        <ChartCanvas size="sm" label="Investment mix" build={() => ({ type: 'doughnut', data: { labels: types, datasets: [{ data: Object.values(byType), backgroundColor: mixColors.map(coC), borderColor: cssv('--card'), borderWidth: 2 }] },
+          options: { responsive: true, maintainAspectRatio: false, cutout: '68%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.label}: ${inr(c.raw * CR)}` } } } } })} />
+        <div className="legend mt" style={{ marginTop: 12 }}>{types.map((k, i) => <span key={k}><i style={{ background: `var(--c-${mixColors[i % mixColors.length]})`, height: 8, width: 8, borderRadius: 2 }} />{k} {pct(byType[k] / val, 0)}</span>)}</div>
+      </Card>
       <Card title="Holdings" bodyClass="card-b tbl-wrap" actions={<Seg label="Filter by type" value={type} onChange={setType} options={[['all', 'All'], ...types.map(t => [t, t])]} />}>
         <table className="tbl">
           <thead><tr><th>Holding</th><th>Type</th><th className="r">Invested</th><th className="r">Current value</th><th className="r">Gain</th><th className="r">Return, 12 months</th></tr></thead>
           <tbody>{shown.map(x => (
             <tr key={x.n}><td>{x.n}</td><td className="t-muted">{x.type}</td><td className="r">{inr(x.inv * CR)}</td>
               <td className="r"><Trace label={x.n} value={x.val * CR} rows={[famRow(x.n, x.val, x.row)]}>{inr(x.val * CR)}</Trace></td>
-              <td className="r t-gain">+{inr((x.val - x.inv) * CR)}</td><td className="r">{pct(x.ret1y)}</td></tr>
+              <td className={`r ${x.val >= x.inv ? 't-gain' : 't-loss'}`}>{x.val >= x.inv ? '+' : '−'}{inr(Math.abs(x.val - x.inv) * CR)}</td><td className="r">{pct(x.ret1y)}</td></tr>
           ))}</tbody>
         </table>
       </Card>

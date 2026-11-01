@@ -3,8 +3,10 @@
 export const CR = 1e7;
 export const LK = 1e5;
 
-/** The sample figures in this build are a snapshot as of this date. */
-export const DATA_AS_OF = '2026-10-07';
+/** The date figures are measured against: today, in the viewer's own time zone. */
+const pad = n => String(n).padStart(2, '0');
+const now = new Date();
+export const DATA_AS_OF = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 
 export function inr(n, opts = {}) {
   if (n == null || isNaN(n)) return '–';
@@ -32,7 +34,7 @@ export function fmtDate(d) {
   return x.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-/** Age of an imported file, measured against the sample data date. */
+/** Age of an imported file, in days. */
 export function daysOld(d) {
   return Math.round((new Date(DATA_AS_OF + 'T00:00:00') - new Date(d + 'T00:00:00')) / 864e5);
 }

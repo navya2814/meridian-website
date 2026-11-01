@@ -4,7 +4,7 @@ import { useApp } from '../AppContext.jsx';
 import { Icon } from '../components/Icon.jsx';
 import ChartCanvas from '../components/ChartCanvas.jsx';
 import { ReservesView } from '../components/finance.jsx';
-import { Callout, Card, Delta, Kpi, PageHead, Stats, Tabs, Tag, Trace, useTab } from '../components/ui.jsx';
+import { Callout, Card, Delta, Empty, Kpi, PageHead, Stats, Tabs, Tag, Trace, useTab } from '../components/ui.jsx';
 import { CO, DOCS, MARKET, MONTHS12, QTRS } from '../lib/data.js';
 import { CR, inr, pct, fmtDate, daysOld, cssv, alpha } from '../lib/format.js';
 import { baseOpts } from '../lib/charts.js';
@@ -40,12 +40,12 @@ function OutlookTab({ c, m, o }) {
         </div></div>
       </section>
       <div className="grid g2">
-        <Card title={c.market.label} hint={`${mk.unit}, last 12 months. Sample figures.`}
-          actions={<span className={`delta ${ch * c.market.sens >= 0 ? 'up' : 'down'}`}>{ch >= 0 ? '↑ +' : '↓ −'}{Math.abs(ch * 100).toFixed(1)}%</span>}>
-          <ChartCanvas size="sm" label={`${mk.n} price`} deps={[c.id]} build={() => {
+        <Card title={c.market.label} hint={`${mk.unit}, last 12 months.`}
+          actions={mk.s.length > 1 && <span className={`delta ${ch * c.market.sens >= 0 ? 'up' : 'down'}`}>{ch >= 0 ? '↑ +' : '↓ −'}{Math.abs(ch * 100).toFixed(1)}%</span>}>
+          {mk.s.length < 2 ? <Empty>No price series is connected for this market yet.</Empty> : <ChartCanvas size="sm" label={`${mk.n} price`} deps={[c.id]} build={() => {
             const acc = cssv('--accent'); const o3 = baseOpts({ y: v => v.toLocaleString('en-IN'), tip: x => ` ${x.raw.toLocaleString('en-IN')} ${mk.unit}` }); o3.scales.y.beginAtZero = false;
             return { type: 'line', data: { labels: MONTHS12, datasets: [{ label: mk.n, data: mk.s, borderColor: acc, backgroundColor: alpha(acc, 0.1), fill: true, tension: 0.35, pointRadius: 0, borderWidth: 2 }] }, options: o3 };
-          }} />
+          }} />}
         </Card>
         <Card title="Concentration" hint="How much the business depends on one input or one buyer">
           <Stats items={[
@@ -95,6 +95,7 @@ function BalanceTab({ c, m }) {
   const li = [['debt', 'Borrowings'], ['payables', 'Due to suppliers'], ['advances', 'Customer advances'], ['otherL', 'Other liabilities']].filter(([k]) => c.bs[k] > 0);
   const cell = ([k, l]) => <tr key={k}><td>{l}</td><td className="r"><Trace label={`${c.short}: ${l.toLowerCase()}`} value={c.bs[k] * CR} rows={[bsRow(c, k, l.toLowerCase())]}>{inr(c.bs[k] * CR)}</Trace></td></tr>;
   const rising = c.invDays.filter((v, i) => i && v > c.invDays[i - 1]).length;
+  const stale = DOCS.filter(d => d.type === 'Stock register' && (d.co === c.id || d.co === 'all') && daysOld(d.date) > 45)[0];
   return (
     <div className="grid g2">
       <Card title="Balance sheet" bodyClass="card-b tbl-wrap">
@@ -112,8 +113,8 @@ function BalanceTab({ c, m }) {
           ['Cost of holding a year', inr(c.bs.inventory * (c.rate + 0.01) * CR)],
           ['Main raw material', <span key="r" style={{ fontFamily: 'var(--f-ui)', fontSize: 14 }}>{c.rawName}</span>],
         ]} />
-        <p className="note">Holding cost uses the company's borrowing rate of {pct(c.rate)} plus about 1% for storage and insurance.{c.id === 'jj' && ` Days to sell has risen in ${rising} of the last seven quarters.`}</p>
-        {c.id === 'jj' && <Callout tone="warn">The stock register was last imported on {fmtDate('2026-07-27')}, {daysOld('2026-07-27')} days before the sample data date. Stock figures may be out of date.</Callout>}
+        <p className="note">Holding cost uses the company's borrowing rate of {pct(c.rate)} plus about 1% for storage and insurance.{rising >= 4 && ` Days to sell has risen in ${rising} of the last seven quarters.`}</p>
+        {stale && <Callout tone="warn">The stock register was last imported on {fmtDate(stale.date)}, {daysOld(stale.date)} days ago. Stock figures may be out of date.</Callout>}
       </Card>
     </div>
   );
@@ -147,7 +148,7 @@ function RemoveConfirm({ c }) {
   };
   return (
     <>
-      <p>This removes {c.name} and the figures entered for it from every page in Meridian. The four original businesses are not affected.</p>
+      <p>This removes {c.name} and the figures entered for it from every page in Meridian. Your other businesses are not affected.</p>
       <div className="row"><button className="btn" style={{ background: 'var(--loss)' }} onClick={remove}><Icon name="close" /> Remove</button><button className="btn ghost" onClick={closeDrawer}>Keep it</button></div>
     </>
   );
@@ -166,7 +167,7 @@ export default function Company() {
   return (
     <>
       <PageHead title={<span className="row" style={{ gap: 10 }}>{c.name}<Tag tone={o.tag}>{o.label}</Tag></span>}
-        sub={`${c.industry}. ${c.factories.length} unit${c.factories.length === 1 ? '' : 's'}. Sample figures to 30 September 2026.`}>
+        sub={`${c.industry}. ${c.factories.length} unit${c.factories.length === 1 ? '' : 's'}.`}>
         <div className="row">
           <button className="btn ghost sm" onClick={testChange}><Icon name="move" /> Test a change</button>
           {c.custom && <button className="btn ghost sm" onClick={() => openDrawer('Remove business', c.name, <RemoveConfirm c={c} />)}><Icon name="close" /> Remove business</button>}

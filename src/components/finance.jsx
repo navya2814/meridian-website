@@ -20,9 +20,9 @@ export function SuggestCard({ s, compact }) {
   const showUsed = () => openDrawer('Data behind this advice', s.what, (
     <>
       <p className="note">Check these files to verify the numbers in the reasons.</p>
-      {s.used.map(id => { const d = DOCS.find(x => x.id === id); const age = daysOld(d.date); return <SourceRow key={id} d={d} extra={age > 45 ? <> · <b className="t-warn">{age} days old</b></> : null} />; })}
+      {s.used.map(id => DOCS.find(x => x.id === id)).filter(Boolean).map(d => { const age = daysOld(d.date); return <SourceRow key={d.id} d={d} extra={age > 45 ? <> · <b className="t-warn">{age} days old</b></> : null} />; })}
       <div className="divider" />
-      <div className="note">Market prices: sample figures for gold, crude palm oil, Brent crude, raw jute and fluff pulp, last 12 months.</div>
+      <div className="note">No market price feed is connected, so market prices are not part of this advice.</div>
     </>
   ));
   const tryIt = () => { setSc(clone(s.sc)); navigate('/resource-allocation?tab=whatif'); };
@@ -68,7 +68,7 @@ function OverrideForm({ c, k }) {
   const x = metrics(c).funds[k];
   const [amt, setAmt] = useState((x.need * 100).toFixed(1));
   const [note, setNote] = useState(x.override ? x.override.note : '');
-  const [by, setBy] = useState(x.override ? x.override.by : 'R. Agarwal, Chief Accountant');
+  const [by, setBy] = useState(x.override ? x.override.by : '');
   const [err, setErr] = useState('');
   const save = () => {
     const a = parseFloat(amt);
@@ -83,7 +83,7 @@ function OverrideForm({ c, k }) {
       <div className="note box"><b>Calculated amount: {inr(x.auto * CR)}</b><br />{x.why}</div>
       <div className="field"><label htmlFor="ovAmt">New amount needed (₹ lakh)</label><input id="ovAmt" className="input num" type="number" min="0" step="0.5" value={amt} onChange={e => setAmt(e.target.value)} /></div>
       <div className="field"><label htmlFor="ovNote">Reason (required)</label><textarea id="ovNote" className="input" rows="3" value={note} onChange={e => setNote(e.target.value)} placeholder="For example: actuarial valuation dated 30 Sep gives a lower figure" /></div>
-      <div className="field"><label htmlFor="ovBy">Entered by</label><input id="ovBy" className="input" value={by} onChange={e => setBy(e.target.value)} /></div>
+      <div className="field"><label htmlFor="ovBy">Entered by</label><input id="ovBy" className="input" value={by} onChange={e => setBy(e.target.value)} placeholder="Name and role" /></div>
       {err && <p className="note" style={{ color: 'var(--loss)' }}>{err}</p>}
       <div className="row"><button className="btn" onClick={save}><Icon name="check" /> Save override</button>{x.override && <button className="btn ghost" onClick={clear}>Remove override</button>}</div>
     </>
@@ -176,16 +176,17 @@ export function AddBusinessForm() {
   const used = COMPANIES.map(c => c.theme.main.toLowerCase());
   const free = PALETTE.filter(p => !used.includes(p.toLowerCase()));
   const pal = free.length ? free : PALETTE;
-  const [f, setF] = useState({ name: '', industry: '', capital: '10', sales: '12', margin: '8', growth: '6', cash: '1', debt: '3', staff: '100', raw: '', market: 'crude', color: pal[0] });
+  const [f, setF] = useState({ name: '', industry: '', capital: '', sales: '', margin: '', growth: '', cash: '', debt: '', staff: '', raw: '', market: 'crude', color: pal[0] });
   const [err, setErr] = useState('');
   const upd = k => e => setF({ ...f, [k]: e.target.value });
   const num = (k, label, step = '0.1', min = '0') => (
-    <div className="field"><label htmlFor={`nb_${k}`}>{label}</label><input id={`nb_${k}`} className="input num" type="number" min={min} step={step} value={f[k]} onChange={upd(k)} /></div>
+    <div className="field"><label htmlFor={`nb_${k}`}>{label}</label><input id={`nb_${k}`} className="input num" type="number" inputMode="decimal" min={min} step={step} value={f[k]} onChange={upd(k)} placeholder="0" /></div>
   );
   const save = () => {
     const name = f.name.trim();
     const v = k => parseFloat(f[k]);
     if (!name) return setErr('Enter the business name.');
+    if (['capital', 'sales', 'margin', 'growth', 'cash', 'debt', 'staff'].some(k => f[k].trim() === '')) return setErr('Fill in every figure. Enter 0 where there is none.');
     if (COMPANIES.some(c => c.name.toLowerCase() === name.toLowerCase())) return setErr('A business with this name is already in Meridian.');
     const rec = { id: 'b' + Date.now().toString(36), name, industry: f.industry.trim(), capital: v('capital'), sales: v('sales'), margin: v('margin'), growth: v('growth') / 100,
       cash: v('cash'), debt: v('debt'), staff: Math.round(v('staff')), raw: f.raw.trim(), market: f.market, color: f.color, added: DATA_AS_OF };

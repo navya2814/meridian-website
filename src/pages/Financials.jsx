@@ -68,7 +68,7 @@ function StatementsTab() {
   );
   const sum = (ks, o) => ks.reduce((s, [k]) => s + o[k], 0);
   return (
-    <Card title="Combined balance sheet, 30 September 2026" hint={'Each company\'s figures roll up into the family total. "Family" covers investments, property, cash and loans held outside the businesses.'} bodyClass="card-b tbl-wrap">
+    <Card title="Combined balance sheet" hint={'Each company\'s figures roll up into the family total. "Family" covers investments, property, cash and loans held outside the businesses.'} bodyClass="card-b tbl-wrap">
       <table className="tbl">
         <thead><tr><th>What we own</th>{COMPANIES.map(c => <th className="r" key={c.id}>{c.short}</th>)}<th className="r">Family</th><th className="r">Total</th></tr></thead>
         <tbody>

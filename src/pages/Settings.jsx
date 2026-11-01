@@ -14,6 +14,16 @@ function NumField({ id, label, value, onChange, step = '1', min = '0', max }) {
   );
 }
 
+function NameField({ value, onSave }) {
+  return (
+    <div className="field"><label htmlFor="pf_name">Your name</label>
+      <input id="pf_name" className="input" maxLength={40} defaultValue={value} key={value} placeholder="For example Asha Rao"
+        onBlur={e => { const v = e.target.value.trim(); if (v !== value) onSave(v); }}
+        onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }} />
+    </div>
+  );
+}
+
 function RulesTab() {
   const { bump, toast } = useApp();
   const set = fn => v => { fn(v); bump(); toast('Rules updated. True net profit recalculated.'); };
@@ -46,20 +56,13 @@ function RulesTab() {
   );
 }
 
-const USERS = [
-  ['Navya Mundara', 'Administrator', 'Everything', 'Everything, including users'],
-  ['R. Agarwal', 'Chief Accountant', 'All companies', 'Imports, mappings, reserve overrides'],
-  ['S. Das', 'Accountant, Bengal Jute Mills', 'Bengal Jute Mills', 'Imports for the jute mill'],
-  ['P. Jain', 'Store manager, JJ Jewelers', 'JJ Jewelers stock', 'Stock register imports'],
-];
-
 export default function Settings() {
-  const { theme, setTheme, collapsed, setCollapsed, syncFail, setSyncFail } = useApp();
+  const { theme, setTheme, collapsed, setCollapsed, profile, setProfile, toast } = useApp();
   const [tab, setTab] = useTab('rules', ['rules', 'appearance', 'data', 'users', 'security']);
   return (
     <>
       <PageHead title="Settings" sub="Rules for reserves, appearance, data, users and security." />
-      <Tabs value={tab} onChange={setTab} list={[['rules', 'Reserve rules'], ['appearance', 'Appearance'], ['data', 'Data and sync'], ['users', 'Users'], ['security', 'Security']]} />
+      <Tabs value={tab} onChange={setTab} list={[['rules', 'Reserve rules'], ['appearance', 'Appearance'], ['data', 'Data and sync'], ['users', 'Profile'], ['security', 'Security']]} />
       {tab === 'rules' && <RulesTab />}
       {tab === 'appearance' && (
         <Card title="Appearance" bodyStyle={{ display: 'grid', gap: 16 }}>
@@ -71,29 +74,22 @@ export default function Settings() {
       {tab === 'data' && (
         <Card title="Data and sync" bodyStyle={{ display: 'grid', gap: 14 }}>
           <div className="row" style={{ justifyContent: 'space-between' }}>
-            <div><b>Sync status</b><p className="note">{syncFail ? 'The last sync failed. Meridian will retry automatically.' : `All ${DOCS.length} files are up to date in the workspace.`}</p></div>
-            <span className="pill-sync"><span className={`dot ${syncFail ? 'amber' : ''}`} />{syncFail ? 'Sync failed' : 'Synced'}</span>
+            <div><b>Where your data is kept</b><p className="note">{DOCS.length} file{DOCS.length === 1 ? '' : 's'} and {COMPANIES.length} business{COMPANIES.length === 1 ? '' : 'es'} are saved in this browser. Nothing is sent to a server.</p></div>
+            <span className="pill-sync"><span className="dot" />Saved locally</span>
           </div>
-          <div className="row"><button className="btn ghost sm" onClick={() => setSyncFail(!syncFail)}>{syncFail ? 'Restore sync' : 'Show how a failed sync looks'}</button></div>
           <div className="divider" />
-          <p className="note">Data older than 45 days is flagged on every page that uses it. Market prices are sample figures until a live feed is connected. Settings, saved scenarios and businesses you add are kept in this browser only.</p>
+          <p className="note">Data older than 45 days is flagged on every page that uses it. No market price feed is connected. Settings, saved scenarios and businesses you add are kept in this browser only, so they do not appear on other devices.</p>
         </Card>
       )}
       {tab === 'users' && (
-        <Card title="Users and permissions" hint="Who can see and change what" bodyClass="card-b tbl-wrap">
-          <table className="tbl">
-            <thead><tr><th>Name</th><th>Role</th><th>Can see</th><th>Can change</th></tr></thead>
-            <tbody>{USERS.map(([n, r, s, c]) => (
-              <tr key={n}><td><span className="row" style={{ gap: 9, flexWrap: 'nowrap' }}><span className="avatar" style={{ width: 28, height: 28, fontSize: 11 }}>{n.split(' ').map(x => x[0]).join('').slice(0, 2)}</span>{n}</span></td>
-                <td>{r}</td><td className="t-muted">{s}</td><td className="t-muted">{c}</td></tr>))}
-            </tbody>
-          </table>
+        <Card title="Your profile" hint="Used for the greeting. Shared access for several people needs a server and sign-in, which this version does not have." bodyStyle={{ display: 'grid', gap: 12 }}>
+          <NameField value={profile.name} onSave={name => { setProfile({ ...profile, name }); toast('Profile saved'); }} />
         </Card>
       )}
       {tab === 'security' && (
         <Card title="Security" bodyStyle={{ display: 'grid', gap: 12 }}>
-          <Callout tone="info">This version is a working prototype. It runs in your browser, uses sample data, and sends nothing to a server. Before real books go in, a production build needs secure sign-in, encryption of stored files, and access rules for each user.</Callout>
-          <Kv items={[['Workspace', 'Private'], ['Data shown', 'Sample figures'], ['Files added on Data Import', 'Read in this browser only'], ['API keys or passwords in the code', 'None']]} />
+          <Callout tone="info">This version runs in your browser and sends nothing to a server. Anything you enter is stored in this browser's local storage, unencrypted, and anyone using this browser profile can see it. Before relying on it for real books, a production build needs secure sign-in, encryption of stored files, and access rules for each user.</Callout>
+          <Kv items={[['Workspace', 'This browser only'], ['Files added on Data Import', 'Read in this browser only'], ['API keys or passwords in the code', 'None']]} />
         </Card>
       )}
     </>

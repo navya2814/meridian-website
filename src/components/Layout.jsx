@@ -31,7 +31,11 @@ function markIntroSeen() {
   try { sessionStorage.setItem('meridian.introSeen', '1'); } catch { /* ignore */ }
 }
 
+const hello = name => (name ? <>{greeting()}, <em>{name}</em></> : <>{greeting()}</>);
+const initials = name => name.trim().split(/\s+/).map(x => x[0]).join('').slice(0, 2).toUpperCase() || 'ME';
+
 function Intro() {
+  const { profile } = useApp();
   const [gone, setGone] = useState(introSeen);
   const [removed, setRemoved] = useState(introSeen);
   useEffect(() => { if (gone) markIntroSeen(); }, [gone]);
@@ -42,7 +46,7 @@ function Intro() {
     <div id="intro" className={gone ? 'gone' : ''} role="status" aria-live="polite" onClick={() => setGone(true)}>
       <div className="intro-box">
         <Logo className="intro-mark" intro />
-        <div className="intro-hello">{greeting()}, <em>Navya</em></div>
+        <div className="intro-hello">{hello(profile.name)}</div>
         <div className="intro-date">{today()}</div>
         <div className="intro-load"><span className="ring" />Bringing your accounts together</div>
         <div className="intro-bar"><i /></div>
@@ -52,15 +56,13 @@ function Intro() {
   );
 }
 
+// Everything is stored in this browser, so there is no server sync to report.
 function SyncText({ short }) {
-  const { sync, syncFail } = useApp();
-  if (syncFail) return <><span className="dot amber" /><span className={short ? 'txt' : 'hide-c'}>{short ? 'Sync failed' : 'Data Status: Sync failed, retrying'}</span></>;
-  if (sync === 'syncing') return <>{short ? <span className="ring" style={{ width: 12, height: 12 }} /> : <span className="dot" />}<span className={short ? 'txt' : 'hide-c'}>{short ? 'Syncing' : 'Data Status: Syncing'}</span></>;
-  return <><span className="dot" /><span className={short ? 'txt' : 'hide-c'}>{short ? 'Synced' : 'Data Status: Synced'}</span></>;
+  return <><span className="dot" /><span className={short ? 'txt' : 'hide-c'}>{short ? 'Saved' : 'Data saved in this browser'}</span></>;
 }
 
 function Sidebar() {
-  const { collapsed, setCollapsed } = useApp();
+  const { collapsed, setCollapsed, profile } = useApp();
   const navigate = useNavigate();
   const onKey = e => {
     if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
@@ -96,8 +98,8 @@ function Sidebar() {
           <div className="sync"><SyncText /></div>
         </div>
         <div className="profile">
-          <span className="avatar" aria-hidden="true">NM</span>
-          <div className="who hide-c"><div className="nm">Navya Mundara</div><div className="rl">Administrator</div></div>
+          <span className="avatar" aria-hidden="true">{initials(profile.name)}</span>
+          <div className="who hide-c"><div className="nm">{profile.name || 'Your profile'}</div><div className="rl">Administrator</div></div>
           <button className="profile-link hide-c" onClick={() => navigate('/settings?tab=users')}>Profile <Icon name="chevR" /></button>
         </div>
         <button className="collapse-btn" aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} onClick={() => setCollapsed(!collapsed)}>
@@ -124,11 +126,10 @@ function TopBar({ coId }) {
             <button className="back-link" onClick={() => navigate('/')}><Icon name="arrowL" /><span className="txt">Back to family overview</span></button>
           </>
         ) : (
-          <><span className="fam">Mundara family office</span><span className="sep">/</span><span className="here">{TITLE_BY_PATH[pathname] || 'Meridian'}</span></>
+          <><span className="fam">Family office</span><span className="sep">/</span><span className="here">{TITLE_BY_PATH[pathname] || 'Meridian'}</span></>
         )}
       </div>
       <div className="top-spacer" />
-      <span className="sample-chip" title="All figures in this build are sample data">Sample data</span>
       <span className="top-date">{shortToday()}</span>
       <span className="top-sync"><SyncText short /></span>
       <button className="icon-btn" aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'} onClick={() => setTheme(dark ? 'light' : 'dark')}>

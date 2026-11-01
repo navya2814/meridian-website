@@ -5,12 +5,6 @@ import { blankScenario, fixScenario } from './lib/engine.js';
 const AppCtx = createContext(null);
 export const useApp = () => useContext(AppCtx);
 
-function initialScenario() {
-  const s = blankScenario();
-  s.move.on = true; // opens with the example from the brief: move 10% from jewellery to hygiene
-  return s;
-}
-
 export function AppProvider({ children }) {
   // `version` is bumped whenever the shared finance data changes (rules, overrides, businesses, imports),
   // so every page recalculates from the engine.
@@ -28,10 +22,9 @@ export function AppProvider({ children }) {
   const [toastMsg, setToastMsg] = useState('');
   const toastTimer = useRef(null);
 
-  const [sync, setSync] = useState('syncing');
-  const [syncFail, setSyncFail] = useState(false);
+  const [profile, setProfileState] = useState(() => { const p = store.get('profile', null); return p && typeof p.name === 'string' ? p : { name: '' }; });
 
-  const [sc, setSc] = useState(initialScenario);
+  const [sc, setSc] = useState(blankScenario);
   const [saved, setSavedState] = useState(() => {
     const list = store.get('saved', []);
     return Array.isArray(list) ? list.filter(x => x && x.name && x.sc).map(x => ({ ...x, sc: fixScenario(x.sc) })) : [];
@@ -42,10 +35,13 @@ export function AppProvider({ children }) {
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
     const on = e => setSysDark(e.matches);
     mq.addEventListener('change', on);
-    const t = setTimeout(() => setSync('synced'), 6200);
-    return () => { mq.removeEventListener('change', on); clearTimeout(t); };
+    return () => mq.removeEventListener('change', on);
   }, []);
 
+  // A business may have been added or removed, so point the What If scenario only at businesses that exist.
+  useEffect(() => { setSc(p => fixScenario(p)); }, [version]);
+
+  const setProfile = useCallback(p => { setProfileState(p); store.set('profile', p); }, []);
   const setTheme = useCallback(t => { setThemeState(t); store.set('theme', t); }, []);
   const setCollapsed = useCallback(v => { setCollapsedState(v); store.set('collapsed', v); }, []);
   const setSaved = useCallback(list => { setSavedState(list); store.set('saved', list); }, []);
@@ -69,9 +65,9 @@ export function AppProvider({ children }) {
   const value = useMemo(() => ({
     version, bump, theme, setTheme, dark, collapsed, setCollapsed, navOpen, setNavOpen, coTheme, setCoTheme, chartKey,
     drawer, openDrawer, closeDrawer, modal, openModal, closeModal, toastMsg, toast, showTrace,
-    sync, syncFail, setSyncFail, sc, setSc, saved, setSaved, chosen, setChosen,
+    profile, setProfile, sc, setSc, saved, setSaved, chosen, setChosen,
   }), [version, bump, theme, setTheme, dark, collapsed, setCollapsed, navOpen, coTheme, chartKey, drawer, openDrawer, closeDrawer,
-    modal, openModal, closeModal, toastMsg, toast, showTrace, sync, syncFail, sc, saved, setSaved, chosen, setChosen]);
+    modal, openModal, closeModal, toastMsg, toast, showTrace, profile, setProfile, sc, saved, setSaved, chosen, setChosen]);
 
   return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>;
 }

@@ -5,7 +5,7 @@ import ChartCanvas from '../components/ChartCanvas.jsx';
 import { SuggestCard } from '../components/finance.jsx';
 import { CashChart } from './Resources.jsx';
 import { Callout, Card, CoDot, Delta, Empty, Kv, PageHead, Seg, SliderRow, Spark, Tabs, Tag, useTab } from '../components/ui.jsx';
-import { CO, COMPANIES, MARKET, SELLABLE, FUND_META, FD_RATE } from '../lib/data.js';
+import { CO, COMPANIES, FAMILY, MARKET, SELLABLE, FUND_META, FD_RATE } from '../lib/data.js';
 import { CR, inr, pct, cssv, coC, alpha, clone, fmtDate, DATA_AS_OF } from '../lib/format.js';
 import { baseOpts, hBarOpts } from '../lib/charts.js';
 import {
@@ -16,6 +16,7 @@ import { ReportView } from './Reports.jsx';
 /* ---------------- Advice ---------------- */
 function Advice() {
   const ms = COMPANIES.map(c => ({ c, m: metrics(c) }));
+  const sugg = suggestions();
   const K = COMPANIES.reduce((s, c) => s + c.capital, 0);
   const TP = ms.reduce((s, x) => s + Math.max(0, x.m.trueProfit), 0);
   return (
@@ -26,7 +27,8 @@ function Advice() {
           { label: 'Share of true net profit', data: ms.map(x => Math.max(0, x.m.trueProfit) / TP * 100), backgroundColor: ms.map(x => coC(x.c.id)), borderRadius: 4, maxBarThickness: 16 },
         ] }, options: hBarOpts({ legend: true, xTick: v => v + '%', tip: c => ` ${c.dataset.label}: ${c.raw.toFixed(1)}%` }) })} />
       </Card>
-      {suggestions().map(s => <section className="card" key={s.id}><div className="card-b" style={{ paddingTop: 20 }}><SuggestCard s={s} /></div></section>)}
+      {sugg.length ? sugg.map(s => <section className="card" key={s.id}><div className="card-b" style={{ paddingTop: 20 }}><SuggestCard s={s} /></div></section>)
+        : <Card title="Suggestions"><Empty>No suggestions yet. Meridian compares your businesses and points out where money could work harder. With one business there is nothing to compare, and with several it speaks up once the returns differ clearly.</Empty></Card>}
       <Callout>These are suggestions to support the family's decision, not instructions. They use true net profit after provisions, so a business with large unfunded obligations is not ranked higher than it deserves. Check the data each one relied on before acting.</Callout>
     </>
   );
@@ -78,11 +80,13 @@ function Rank() {
 
 /* ---------------- Bulk buying ---------------- */
 function Bulk() {
+  const items = bulkItems();
+  if (!items.length) return <Card title="When to buy raw materials"><Empty>This needs a price series for the materials your businesses buy. No market price feed is connected yet, so there is nothing to base a buying suggestion on.</Empty></Card>;
   return (
     <>
-      <div className="grid g2">{bulkItems().map(x => { const m = MARKET[x.k]; return (
+      <div className="grid g2">{items.map(x => { const m = MARKET[x.k]; return (
         <section className="card" key={x.k}>
-          <div className="card-h"><div><h3 className="row" style={{ gap: 8 }}><CoDot id={x.co} />{m.n}</h3><p className="hint">{CO[x.co].short} · {m.s[11].toLocaleString('en-IN')} {m.unit}</p></div><Tag tone={x.tone}>{x.verdict}</Tag></div>
+          <div className="card-h"><div><h3 className="row" style={{ gap: 8 }}><CoDot id={x.co} />{m.n}</h3><p className="hint">{CO[x.co].short} · {m.s[m.s.length - 1].toLocaleString('en-IN')} {m.unit}</p></div><Tag tone={x.tone}>{x.verdict}</Tag></div>
           <div className="card-b" style={{ display: 'grid', gap: 12 }}>
             <div style={{ height: 44 }}><Spark vals={m.s} color={coC(x.co)} w={300} h={44} /></div>
             <Kv items={[['Suggested quantity', <span key="q" style={{ fontFamily: 'var(--f-ui)' }}>{x.qty}</span>], ...(x.cash ? [['Cash needed', inr(x.cash * CR)]] : [])]} />
@@ -90,7 +94,6 @@ function Bulk() {
           </div>
         </section>); })}
       </div>
-      <Callout>Price figures are sample data. Connect a live price feed and these suggestions will update with real market moves.</Callout>
     </>
   );
 }
@@ -144,11 +147,11 @@ function Controls({ focus }) {
         <div className="field"><label>Business</label><CoSelect path="withdraw.co" /></div>{sl('withdraw.amt', 0, 1000, 5, 1, '₹ lakh, into family cash', 'Amount to withdraw')}
       </Group>
       <Group k="sell" icon="tag" title="Sell an asset">
-        <div className="field"><label>Asset</label>
+        {!asset ? <p className="note">No sellable assets are recorded yet.</p> : <><div className="field"><label>Asset</label>
           <select className="input" value={sc.sell.asset} onChange={e => setSc(p => { const n = clone(p); n.sell.asset = e.target.value; n.sell.on = true; n.sell.price = Math.round(SELLABLE.find(a => a.id === e.target.value).book * 100); return n; })}>
             {SELLABLE.map(a => <option key={a.id} value={a.id}>{a.n} (book {inr(a.book * CR)})</option>)}
           </select></div>
-        {sl('sell.price', 0, Math.round(asset.book * 200), 5, 1, '₹ lakh, the price you expect', 'Sale price')}
+        {sl('sell.price', 0, Math.round(asset.book * 200), 5, 1, '₹ lakh, the price you expect', 'Sale price')}</>}
       </Group>
       <Group k="loan" icon="bank" title="Take a loan">
         <div className="field"><label>Use the money for</label><CoSelect path="loan.co" fam /></div>
@@ -204,6 +207,7 @@ function Results({ sc }) {
   const Kb = b.st.reduce((a, x) => a + x.K, 0), Ks = s.st.reduce((a, x) => a + x.K, 0);
   const yfB = A.mcb.slice(0, 12).reduce((a, x) => a + x.op, 0), yfS = A.mc.slice(0, 12).reduce((a, x) => a + x.op, 0);
   const debtNow = ft.liab - COMPANIES.reduce((a, c) => a + c.bs.payables + c.bs.advances + c.bs.otherL, 0);
+  const famInt = FAMILY.loans.reduce((a, l) => a + l.amt * l.rate, 0);
   const money = v => inr(v * CR), pc = v => pct(v), mo = v => v.toFixed(1) + ' mo', ratio = v => pct(v, 0);
   const row = (l, now, wo, w, fmt = money, inv = false) => { const diff = w - wo; return (
     <tr key={l}><td>{l}</td><td className="r">{now == null ? <span className="t-muted">–</span> : fmt(now)}</td><td className="r">{fmt(wo)}</td><td className="r"><b>{fmt(w)}</b></td>
@@ -284,7 +288,7 @@ function Results({ sc }) {
             {row('Cash available', ft.cash, A.mcb[11].cash, A.mc[11].cash)}
             {row('Months of costs covered', ft.cash / ft.fixedMonthly, A.mcb[11].cash / ft.fixedMonthly, A.mc[11].cash / A.obligations, mo)}
             {row('Total debt', debtNow, b.yearly[0].debt, s.yearly[0].debt, money, true)}
-            {row('Interest paid a year', COMPANIES.reduce((a, c) => a + c.bs.debt * c.rate, 0) + 0.27, b.yearly[0].interest + 0.27, s.yearly[0].interest + 0.27, money, true)}
+            {row('Interest paid a year', COMPANIES.reduce((a, c) => a + c.bs.debt * c.rate, 0) + famInt, b.yearly[0].interest + famInt, s.yearly[0].interest + famInt, money, true)}
             {row('Debt compared to assets', debtNow / ft.assets, b.yearly[0].debt / b.yearly[0].assets, s.yearly[0].debt / s.yearly[0].assets, ratio, true)}
           </tbody>
         </table>
@@ -324,7 +328,7 @@ function SavePanel() {
   return (
     <>
       <section className="card"><div className="card-b row" style={{ justifyContent: 'space-between', paddingTop: 18 }}>
-        <div className="row" style={{ flex: 1, minWidth: 220 }}><input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="Name this scenario, for example Jewellery to hygiene 10%" style={{ flex: 1, minWidth: 0 }} aria-label="Scenario name" /><button className="btn" onClick={save}><Icon name="save" /> Save</button></div>
+        <div className="row" style={{ flex: 1, minWidth: 220 }}><input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="Name this scenario, for example Move 10% between two businesses" style={{ flex: 1, minWidth: 0 }} aria-label="Scenario name" /><button className="btn" onClick={save}><Icon name="save" /> Save</button></div>
         <button className="btn ghost" onClick={() => exportSc(name.trim() || 'Unsaved scenario', sc)}><Icon name="reports" /> Export as report</button>
       </div></section>
       <Card title="Saved scenarios" hint="Tick up to three to compare side by side. Mark one as the chosen plan to track it against real results." bodyStyle={{ display: 'grid', gap: 16 }}>
@@ -365,7 +369,7 @@ function SavePanel() {
               <div className="tbl-wrap"><table className="tbl">
                 <thead><tr><th>Month</th><th className="r">Predicted cash</th><th className="r">Actual cash</th><th className="r">Predicted true profit</th><th className="r">Actual</th><th>Status</th></tr></thead>
                 <tbody>{monthlyCash(chosenSc.sc).slice(0, 6).map((m, i) => (
-                  <tr key={m.label}><td>{m.label}</td><td className="r">{inr(m.cash * CR)}</td><td className="r t-muted">Awaiting books</td><td className="r">{inr(chosenSc.sum.tp / 12 * CR)}</td><td className="r t-muted">Awaiting books</td><td className="small t-muted">{i === 0 ? 'Due after 30 Nov 2026 import' : 'Scheduled'}</td></tr>
+                  <tr key={m.label}><td>{m.label}</td><td className="r">{inr(m.cash * CR)}</td><td className="r t-muted">Awaiting books</td><td className="r">{inr(chosenSc.sum.tp / 12 * CR)}</td><td className="r t-muted">Awaiting books</td><td className="small t-muted">{i === 0 ? 'Due after next month\'s import' : 'Scheduled'}</td></tr>
                 ))}</tbody>
               </table></div>
             </div>

@@ -4,7 +4,7 @@ import { Icon } from '../components/Icon.jsx';
 import { Card, CoDot, PageHead } from '../components/ui.jsx';
 import { CO, COMPANIES, DOCS } from '../lib/data.js';
 import { fmtDate, daysOld, DATA_AS_OF } from '../lib/format.js';
-import { classify, DOC_TYPES, parseCSV } from '../lib/engine.js';
+import { classify, DOC_TYPES, parseCSV, saveExtra } from '../lib/engine.js';
 
 const MAX_BYTES = 20 * 1024 * 1024;
 
@@ -30,13 +30,6 @@ async function readFile(f) {
   return { file: f.name, rows: Math.max(0, rows.length - 1), preview: rows.slice(0, 6), note, ...classify(f.name, text) };
 }
 
-const DEMO = [
-  ['HHL_Guwahati_CashBook_Oct2026.csv', 'Date,Voucher,Receipt,Payment,Narration', 212],
-  ['EEO_Haldia_Stock_Oct_wk1.xlsx', 'Item,Opening stock,Received,Issued,Closing stock (kg)', 96],
-  ['Titagarh_Ledger_Q2.xlsx', 'Date,Account,Debit,Credit,Narration', 1840],
-  ['ParkSt_Gold_Stock_Oct2026.xlsx', 'Item code,Description,Gross weight (grams),Karat,Value', 2104],
-];
-
 export default function DataImport() {
   const { toast, openDrawer, bump } = useApp();
   const [imports, setImports] = useState([]);
@@ -49,10 +42,10 @@ export default function DataImport() {
     for (const f of files) out.push(await readFile(f));
     setImports(prev => [...prev, ...out]);
   };
-  const demo = () => setImports(prev => [...prev, ...DEMO.map(([n, h, r]) => ({ file: n, rows: r, preview: [h.split(',')], note: 'Sample file', ...classify(n, h) }))]);
   const upd = (i, k, v) => setImports(prev => prev.map((f, j) => { if (j !== i) return f; const n = { ...f, [k]: v, conf: 1 }; if (k === 'co') n.unit = v === 'fam' ? 'Family office' : 'All units'; return n; }));
   const confirm = () => {
-    imports.forEach((f, i) => DOCS.push({ id: 'n' + Date.now() + i, file: f.file, co: f.co, unit: f.unit, type: f.type, date: DATA_AS_OF, rows: f.rows }));
+    imports.forEach((f, i) => DOCS.push({ id: 'n' + Date.now() + i, file: f.file, co: f.co, unit: f.unit, type: f.type, date: DATA_AS_OF, rows: f.rows, user: true }));
+    saveExtra();
     const n = imports.length; setImports([]); bump(); toast(`${n} file${n > 1 ? 's' : ''} imported and sorted`);
   };
   const preview = f => openDrawer('Preview', f.file, f.preview.length ? (
@@ -72,7 +65,6 @@ export default function DataImport() {
         <span className="btn sm" style={{ pointerEvents: 'none' }}>Choose files</span>
         <input id="fileIn" ref={input} type="file" multiple accept=".xlsx,.xls,.csv,.pdf,.txt" hidden onChange={e => { take([...e.target.files]); e.target.value = ''; }} />
       </label>
-      <div className="row" style={{ justifyContent: 'center' }}><button className="btn ghost sm" onClick={demo}><Icon name="file" /> Try with four sample files</button></div>
       {imports.length > 0 && (
         <Card title="Check the mapping" hint="Meridian's guess is filled in. Change any company, unit or type that is wrong, then confirm." bodyClass="card-b tbl-wrap"
           actions={<div className="row"><button className="btn ghost sm" onClick={() => setImports([])}>Discard</button><button className="btn sm" onClick={confirm}><Icon name="check" /> Confirm {imports.length} file{imports.length > 1 ? 's' : ''}</button></div>}>
@@ -92,10 +84,10 @@ export default function DataImport() {
           </table>
         </Card>
       )}
-      <Card title="Imported files" hint={`${DOCS.length} files feeding the platform. Files older than 45 days are flagged because they can make advice less reliable.`} bodyClass="card-b tbl-wrap">
+      <Card title="Imported files" hint={`${DOCS.length} file${DOCS.length === 1 ? '' : 's'} imported. Files older than 45 days are flagged because they can make advice less reliable.`} bodyClass="card-b tbl-wrap">
         <table className="tbl">
           <thead><tr><th>File</th><th>Company</th><th>Unit</th><th>Type</th><th className="r">Rows</th><th>Imported</th></tr></thead>
-          <tbody>{sorted.map(d => { const a = daysOld(d.date); const id = d.co === 'all' ? 'fam' : d.co; return (
+          <tbody>{!sorted.length && <tr><td colSpan={6} className="t-muted" style={{ textAlign: 'center', padding: 24 }}>No files imported yet.</td></tr>}{sorted.map(d => { const a = daysOld(d.date); const id = d.co === 'all' ? 'fam' : d.co; return (
             <tr key={d.id}><td style={{ wordBreak: 'break-all' }}>{d.file}</td>
               <td><span className="row" style={{ gap: 7, flexWrap: 'nowrap' }}><CoDot id={id} />{d.co === 'all' ? 'All companies' : d.co === 'fam' ? 'Family office' : CO[d.co] ? CO[d.co].short : 'Removed'}</span></td>
               <td className="t-muted">{d.unit}</td><td>{d.type}</td><td className="r">{d.rows.toLocaleString('en-IN')}</td>

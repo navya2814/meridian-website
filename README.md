@@ -2,7 +2,7 @@
 
 Meridian brings a family's businesses, investments, property and loans into one place. It shows where cash and assets sit, how much each business really earns after setting money aside for obligations, and what would happen if money were moved between businesses.
 
-**Everything in this build is sample data.** The companies, figures, files and market prices are illustrative. The top bar says "Sample data" on every page, and reports say so in their header. There are no API keys, passwords or real financial records anywhere in the code.
+**The app starts empty.** There is no built-in data: every figure comes from the businesses you add and the files you import. Until the first business is added, pages show a "Get started" screen. There are no API keys, passwords or financial records anywhere in the code.
 
 ## Run it on your computer
 
@@ -68,7 +68,7 @@ src/
   AppContext.jsx        Shared state: theme, sidebar, drawer, modal, toast, What If scenario, saved plans
   styles.css            Full design: espresso sidebar, cream workspace, gold accents, light and dark themes
   lib/
-    data.js             Sample data (businesses, files, family holdings, market prices, loans)
+    data.js             Empty containers for businesses, files, family holdings, market prices, loans
     engine.js           Finance engine: reserves, true profit, outlook, ranking, scenarios, Monte Carlo, reports
     format.js           Indian number format (lakh, crore), dates, colours
     charts.js           Shared Chart.js options that follow the theme
@@ -84,16 +84,16 @@ src/
 
 ## Where data is kept
 
-This build has no server and no database. Theme, sidebar state, saved What If plans and businesses you add are stored in the viewer's own browser (`localStorage`), so they do not appear on other devices. Files chosen on Data Import are read inside the browser and are never uploaded.
+This build has no server and no database. Theme, sidebar state, your name, saved What If plans, imported file records and businesses you add are stored in the viewer's own browser (`localStorage`), so they do not appear on other devices. Files chosen on Data Import are read inside the browser and are never uploaded.
 
-## Before putting real books in
+## Before relying on it for real books
 
-Real financial data needs more than a static site. Before replacing the sample data, add:
+Real financial data needs more than a static site. Before doing so, add:
 
-- sign-in with per-user access rules (the Users table in Settings shows the intended roles);
+- sign-in with per-user access rules (Settings only holds a single local profile name);
 - a server and database to store imported books, with encryption at rest;
 - a server-side import that keeps the original files untouched;
-- a live market price feed in place of the sample gold, palm oil, crude, jute and pulp prices;
+- a live market price feed (the gold, palm oil, crude, jute and pulp series are empty until one is connected);
 - review of the reserve rules by a qualified accountant.
 
 Never put API keys or credentials in this front-end code. Anything in `src/` is visible to whoever opens the site.

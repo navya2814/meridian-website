@@ -13,6 +13,9 @@ import Insights from './pages/Insights.jsx';
 import DataImport from './pages/DataImport.jsx';
 import Reports from './pages/Reports.jsx';
 import Settings from './pages/Settings.jsx';
+import NoData from './components/NoData.jsx';
+import { useApp } from './AppContext.jsx';
+import { COMPANIES } from './lib/data.js';
 
 function NotFound() {
   return (
@@ -45,25 +48,32 @@ class PageBoundary extends Component {
 
 const page = el => <PageBoundary>{el}</PageBoundary>;
 
+/** Pages that calculate from the businesses show a "get started" screen until one has been added. */
+function Gate({ title, children }) {
+  useApp(); // re-render when a business is added or removed
+  return COMPANIES.length ? children : <NoData title={title} />;
+}
+const gated = (title, el) => page(<Gate title={title}>{el}</Gate>);
+
 export default function App() {
   return (
     <AppProvider>
       <BrowserRouter>
         <Routes>
           <Route element={<Layout />}>
-            <Route index element={page(<Overview />)} />
-            <Route path="financials" element={page(<Financials />)} />
+            <Route index element={gated('Overview', <Overview />)} />
+            <Route path="financials" element={gated('Financials', <Financials />)} />
             <Route path="businesses" element={page(<Businesses />)} />
-            <Route path="businesses/:id" element={page(<Company />)} />
-            <Route path="assets" element={page(<Assets />)} />
-            <Route path="liabilities" element={page(<Liabilities />)} />
-            <Route path="cash-flow" element={page(<CashFlow />)} />
-            <Route path="investments" element={page(<Investments />)} />
-            <Route path="resource-allocation" element={page(<Allocation />)} />
-            <Route path="forecast" element={page(<Forecast />)} />
-            <Route path="insights" element={page(<Insights />)} />
+            <Route path="businesses/:id" element={gated('Business', <Company />)} />
+            <Route path="assets" element={gated('Assets', <Assets />)} />
+            <Route path="liabilities" element={gated('Liabilities', <Liabilities />)} />
+            <Route path="cash-flow" element={gated('Cash flow', <CashFlow />)} />
+            <Route path="investments" element={gated('Investments', <Investments />)} />
+            <Route path="resource-allocation" element={gated('Resource allocation', <Allocation />)} />
+            <Route path="forecast" element={gated('Forecast', <Forecast />)} />
+            <Route path="insights" element={gated('Insights', <Insights />)} />
             <Route path="data-import" element={page(<DataImport />)} />
-            <Route path="reports" element={page(<Reports />)} />
+            <Route path="reports" element={gated('Reports', <Reports />)} />
             <Route path="settings" element={page(<Settings />)} />
             <Route path="*" element={<NotFound />} />
           </Route>
